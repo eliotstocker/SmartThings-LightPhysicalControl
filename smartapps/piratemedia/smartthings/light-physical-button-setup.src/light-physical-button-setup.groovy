@@ -52,6 +52,8 @@ def LightSettingsPage() {
         }
         
         section("Time specific settings (Overrides above values within selected time frames)") {
+        }
+        section("New time specific setting") {
         	app(name: "timeSetup", appName: "Light Physical Button Time Settings", namespace: "piratemedia/smartthings", title: "New Time Specific Setting", multiple: true)
         }
         

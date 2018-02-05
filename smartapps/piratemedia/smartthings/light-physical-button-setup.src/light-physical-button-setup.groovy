@@ -130,14 +130,13 @@ def buttonPress(evt) {
         	if(child.isActive()) {
             	timedSettingsActive = true;
                 def settings = child.getSettings()
-                log.debug "Timed Vals: $settings"
-                if(settings.level != null) {
+                if(settings.level != null && settings.level.toString() != "null") {
                     runIn(1, setupLevel, [data: settings])
                 }
-                if(settings.temp != null) {
+                if(settings.temp != null && settings.temp.toString() != "null") {
                     runIn(1, setupColorTemp, [data: settings])
                 }
-                if(settings.color != null) {
+                if(settings.color != null && settings.color.toString() != "null") {
                     runIn(1, setupColor, [data: settings])
                 }
                 return
@@ -159,12 +158,11 @@ def buttonPress(evt) {
 }
 
 def setupColorTemp(data) {
-    if(data.temp != null) {
+    if(data.temp != null && data.temp.toString() != "null") {
         for(light in lights) {
-            if(!checkDeviceForCapability(light, 'Color Control') || data.color == null) {
+            if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
                 try {
                     light.setColorTemperature(data.temp);
-                    log.debug "Set Temp to: $temp on: $light.name"
                 } catch(e) {}
             }
         }
@@ -172,19 +170,21 @@ def setupColorTemp(data) {
 }
 
 def setupLevel(data) {
-    if(data.level != null) {
+    if(data.level != null && data.level.toString() != "null") {
         for(light in lights) {
-            if(!checkDeviceForCapability(light, 'Color Control') || data.color == null) {
+            if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
                 try {
                     light.setLevel(data.level);
                 } catch(e) {}
+            } else {
+            	log.debug "dont set color temp as were going to set the color"
             }
         }
     }
 }
 
 def setupColor(data) {
-    if(data.color != null) {
+    if(data.color != null && data.color.toString() != "null") {
         for(light in lights) {
             try {
                 def hue = 0;

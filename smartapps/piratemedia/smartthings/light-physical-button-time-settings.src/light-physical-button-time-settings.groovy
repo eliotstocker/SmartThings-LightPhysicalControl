@@ -35,6 +35,11 @@ preferences {
         input "temp", "number", title: "Light Color Temperature", range: "(2700..6500)", required: false
         input "color", "enum", title: "Color", options: ["Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet"], required: false
     }
+    section("Advanced: Per Light Settings") {
+    }
+    section() {
+    	app(name: "singleLight", appName: "Light Physical Single Light Setting", namespace: "piratemedia/smartthings", title: "New Single Light Setting", multiple: true)
+    }
 }
 
 def installed() {
@@ -67,4 +72,29 @@ def getSettings() {
         temp: temp,
         color: color
     ]
+}
+
+def getSpecificLightSetting(label) {
+	def children = getChildApps()
+    def data = null;
+    children.each { child ->
+    	def settings = child.getLightSettings();
+        if(settings.light == label) {
+        	data = settings
+        }
+    }
+    return data
+}
+
+def checkDeviceForCapabilityById(id, capability) {
+	return parent.checkDeviceForCapabilityById(id, capability)
+}
+
+def hasSpecificSettings() {
+	def children = getChildApps()
+    return children.size > 0
+}
+
+def getLightDevices() {
+	return parent.getLightDevices()
 }

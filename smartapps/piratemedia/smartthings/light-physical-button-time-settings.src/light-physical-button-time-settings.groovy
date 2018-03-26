@@ -32,7 +32,7 @@ preferences {
     }
 	section("Select Lights Settings when turned on within selected time range") {
         input "level", "number", title: "Light Brightness", range: "(1..100)", required: false
-        input "temp", "number", title: "Light Color Temperature", range: "(2700..6500)", required: false
+        input "temp", "number", title: "Light Color Temperature", range: "(2200..6500)", required: false
         input "color", "enum", title: "Color", options: ["Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet"], required: false
     }
     section("Advanced: Per Light Settings") {

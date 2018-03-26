@@ -43,7 +43,7 @@ def LightSettingsPage() {
                 input "level", "number", title: "Light Brightness", range: "(1..100)", required: false
             }
             if(canControlColorTemperature()) {
-                input "temp", "number", title: "Light Color Temperature", range: "(2700..6500)", required: false
+                input "temp", "number", title: "Light Color Temperature", range: "(2200..6500)", required: false
             }
             if(canControlColor()) {
                 input "color", "enum", title: "Color", options: ["Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet"], required: false
@@ -112,14 +112,10 @@ def canControlColor() {
 }
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
-
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
-
 	unsubscribe()
 	initialize()
 }
@@ -129,6 +125,10 @@ def initialize() {
 }
 
 def buttonPress(evt) {
+	def isHeld = false;
+    if(evt.value == "held") {
+    	isHeld = true;
+    }
 	def anyOn = false;
 	for(light in lights) {
     	if(light.currentValue("switch") == "on") anyOn = true;
@@ -136,198 +136,116 @@ def buttonPress(evt) {
     if(anyOn) {
     	lights.off()
     } else {
-        def timedSettingsActive = false;
-        def children = getChildApps()
-        children.each { child ->
-        	if(child.isActive()) {
-            	timedSettingsActive = true;
-                def settings = child.getSettings()
-                if(child.hasSpecificSettings()) {
-                    lights.each{ light ->
-                        def data = child.getSpecificLightSetting(light.label);
-                        if(data != null) {
-                            log.debug "Settings for: $light.label: $data"
-                        	def lightOff = false
-                            if(data.on != null && data.on.toString() != "null") {
-                                if(!data.on) {
-                                    log.debug "turn light off: $data.light"
-                                    light.off()
-                                    lightOff = true;
+    	if(!isHeld) {
+            def timedSettingsActive = false;
+            def children = getChildApps()
+            children.each { child ->
+                if(child.isActive()) {
+                    timedSettingsActive = true;
+                    def settings = child.getSettings()
+                    if(child.hasSpecificSettings()) {
+                        lights.each{ light ->
+                            def data = child.getSpecificLightSetting(light.label);
+                            if(data != null) {
+                                def lightOff = false
+                                if(data.on != null && data.on.toString() != "null") {
+                                    if(!data.on) {
+                                        light.off()
+                                        lightOff = true;
+                                    }
                                 }
-                            }
-                            if(!lightOff) {
+                                if(!lightOff) {
+                                    light.on()
+                                    if(data.level != null && data.level.toString() != "null"
+                                        || data.temp != null && data.temp.toString() != "null"
+                                        || data.color != null && data.color.toString() != "null") {
+                                        setLightConfig(light, data);
+                                    }
+                                }
+                            } else {
                                 light.on()
-                                if(data.level != null && data.level.toString() != "null") {
-                                    runIn(1, setupLevel, [data: data])
+                                settings['light'] = light.label
+                                if(settings.level != null && settings.level.toString() != "null"
+                                   || settings.temp != null && settings.temp.toString() != "null"
+                                   || settings.color != null && settings.color.toString() != "null") {
+                                    setLightConfig(light, settings);
                                 }
-                                if(data.temp != null && data.temp.toString() != "null") {
-                                    runIn(2, setupColorTemp, [data: data])
-                                }
-                                if(data.color != null && data.color.toString() != "null") {
-                                    runIn(3, setupColor, [data: data])
-                                }
-                            }
-                        } else {
-                            light.on()
-                        	settings['light'] = light.label
-                            log.debug "No Settings for: $light.label: $settings"
-                            if(settings.level != null && settings.level.toString() != "null") {
-                            	runIn(1, setupLevel, [data: settings])
-                            }
-                            if(settings.temp != null && settings.temp.toString() != "null") {
-                                runIn(2, setupColorTemp, [data: settings])
-                            }
-                            if(settings.color != null && settings.color.toString() != "null") {
-                                runIn(3, setupColor, [data: settings])
                             }
                         }
+                    } else {
+                        lights.on()
+                        if(settings.level != null && settings.level.toString() != "null"
+                            || settings.temp != null && settings.temp.toString() != "null"
+                            || settings.color != null && settings.color.toString() != "null") {
+                            setLightsConfig(settings);
+                        }
                     }
-                } else {
-                    lights.on()
-                    if(settings.level != null && settings.level.toString() != "null") {
-                        runIn(1, setupLevel, [data: settings])
-                    }
-                    if(settings.temp != null && settings.temp.toString() != "null") {
-                        runIn(2, setupColorTemp, [data: settings])
-                    }
-                    if(settings.color != null && settings.color.toString() != "null") {
-                        runIn(3, setupColor, [data: settings])
-                    }
+                    return
                 }
-                return
             }
 		}
         
         if(!timedSettingsActive) {
             lights.on()
-        	if(level != null) {
-            	runIn(1, setupLevel, [data: [level: level, temp: temp, color: color]])
-            }
-            if(temp != null) {
-            	runIn(1, setupColorTemp, [data: [level: level, temp: temp, color: color]])
-            }
-            if(color != null) {
-            	runIn(1, setupColor, [data: [level: level, temp: temp, color: color]])
+            if(level != null || settings.temp != null || settings.color != null) {
+                setLightsConfig([level: level, temp: temp, color: color]);
             }
         }
     }
 }
 
-def setupColorTemp(data) {
-    if(data.temp != null && data.temp.toString() != "null") {
-    	if(data.light != null && data.light.toString() != "null") {
-        	def light = getDeviceByLabel(data.light)
-        	if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
-                try {
-                    light.setColorTemperature(data.temp);
-                } catch(e) {}
-            }
-        } else {
-            for(light in lights) {
-                if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
-                    try {
-                        light.setColorTemperature(data.temp);
-                    } catch(e) {}
-                }
-            }
-        }
+def setLightsConfig(data) {
+	for(light in lights) {
+    	setLightConfig(light, data);
     }
 }
 
-def setupLevel(data) {
-    if(data.level != null && data.level.toString() != "null") {
-    	if(data.light != null && data.light.toString() != "null") {
-        	def light = getDeviceByLabel(data.light)
-        	if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
-                try {
-                    light.setLevel(data.level);
-                } catch(e) {}
-            } else {
-                log.debug "dont set color temp as were going to set the color"
-            }
-        } else {
-            for(light in lights) {
-                if(!checkDeviceForCapability(light, 'Color Control') || data.color == null || data.color.toString() == "null") {
-                    try {
-                        light.setLevel(data.level);
-                    } catch(e) {}
-                } else {
-                    log.debug "dont set color temp as were going to set the color"
-                }
-            }
-        }
-    }
-}
-
-def setupColor(data) {
+def setLightConfig(light, data) {
+    //set config for single Bulb
     if(data.color != null && data.color.toString() != "null") {
-    	if(data.light != null && data.light.toString() != "null") {
-        	def light = getDeviceByLabel(data.light)
-        	try {
-                def hue = 0;
-                switch(data.color) {
-                    case "Red":
-                    hue = 0;
-                    break;
-                    case "Orange":
-                    hue = 8.3;
-                    break;
-                    case "Yellow":
-                    hue = 16;
-                    break;
-                    case "Green":
-                    hue = 33;
-                    break;
-                    case "Blue":
-                    hue = 66;
-                    break;
-                    case "Indigo":
-                    hue = 77;
-                    break;
-                    case "Violet":
-                    hue = 88;
-                    break;
-                }
-                def lvl = data.level ?: 100
-                light.setColor([
-                    hue: hue, saturation: 100, level: lvl
-                ]);
-                log.debug "Set Temp to: $temp on: $light.name"
-            } catch(e) {}
-        } else {
-            for(light in lights) {
-                try {
-                    def hue = 0;
-                    switch(data.color) {
-                        case "Red":
-                        hue = 0;
-                        break;
-                        case "Orange":
-                        hue = 8.3;
-                        break;
-                        case "Yellow":
-                        hue = 16;
-                        break;
-                        case "Green":
-                        hue = 33;
-                        break;
-                        case "Blue":
-                        hue = 66;
-                        break;
-                        case "Indigo":
-                        hue = 77;
-                        break;
-                        case "Violet":
-                        hue = 88;
-                        break;
-                    }
-                    def lvl = data.level ?: 100
-                    light.setColor([
-                        hue: hue, saturation: 100, level: lvl
-                    ]);
-                    log.debug "Set Temp to: $temp on: $light.name"
-                } catch(e) {}
+        try {
+            def hue = 0;
+            switch(data.color) {
+                case "Red":
+                hue = 0;
+                break;
+                case "Orange":
+                hue = 8.3;
+                break;
+                case "Yellow":
+                hue = 16;
+                break;
+                case "Green":
+                hue = 33;
+                break;
+                case "Blue":
+                hue = 66;
+                break;
+                case "Indigo":
+                hue = 77;
+                break;
+                case "Violet":
+                hue = 88;
+                break;
             }
+            def lvl = data.level ?: 100
+            light.setColor([
+                hue: hue, saturation: 100, level: lvl
+            ], [delay: 250]);
+        } catch(e) {
+            if(data.temp != null && data.temp.toString() != "null") {
+                light.setColorTemperature(data.temp, [delay: 500]);
+            }
+            if(data.level != null && data.level.toString() != "null") {
+                light.setLevel(data.level, [delay: 250]);
+            }
+        }
+    } else {
+        if(data.temp != null && data.temp.toString() != "null") {
+            light.setColorTemperature(data.temp, [delay: 500]);
+        }
+        if(data.level != null && data.level.toString() != "null") {
+            light.setLevel(data.level, [delay: 250]);
         }
     }
 }
@@ -358,6 +276,5 @@ def getDeviceByLabel(label) {
 	lights.each { light ->
     	if(light.label == label) out = light
     }
-    log.debug "get device by label: $lable, $out.id" 
     return out
 }

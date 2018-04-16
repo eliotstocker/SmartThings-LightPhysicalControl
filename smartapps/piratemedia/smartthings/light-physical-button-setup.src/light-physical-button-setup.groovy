@@ -130,6 +130,7 @@ def buttonPress(evt) {
     	isHeld = true;
     }
 	def anyOn = false;
+    def timedSettingsActive = false;
 	for(light in lights) {
     	if(light.currentValue("switch") == "on") anyOn = true;
     }
@@ -137,17 +138,17 @@ def buttonPress(evt) {
     	lights.off()
     } else {
     	if(!isHeld) {
-            def timedSettingsActive = false;
             def children = getChildApps()
             children.each { child ->
                 if(child.isActive()) {
-                    timedSettingsActive = true;
+                    timedSettingsActive = true
                     def settings = child.getSettings()
                     if(child.hasSpecificSettings()) {
                         lights.each{ light ->
                             def data = child.getSpecificLightSetting(light.label);
                             if(data != null) {
                                 def lightOff = false
+                                log.debug data
                                 if(data.on != null && data.on.toString() != "null") {
                                     if(!data.on) {
                                         light.off()
@@ -164,7 +165,6 @@ def buttonPress(evt) {
                                 }
                             } else {
                                 light.on()
-                                settings['light'] = light.label
                                 if(settings.level != null && settings.level.toString() != "null"
                                    || settings.temp != null && settings.temp.toString() != "null"
                                    || settings.color != null && settings.color.toString() != "null") {
@@ -187,7 +187,7 @@ def buttonPress(evt) {
         
         if(!timedSettingsActive) {
             lights.on()
-            if(level != null || settings.temp != null || settings.color != null) {
+            if(level != null || temp != null || color != null) {
                 setLightsConfig([level: level, temp: temp, color: color]);
             }
         }
@@ -195,6 +195,7 @@ def buttonPress(evt) {
 }
 
 def setLightsConfig(data) {
+    log.debug "set all lights"
 	for(light in lights) {
     	setLightConfig(light, data);
     }
@@ -234,18 +235,18 @@ def setLightConfig(light, data) {
             ], [delay: 250]);
         } catch(e) {
             if(data.temp != null && data.temp.toString() != "null") {
-                light.setColorTemperature(data.temp, [delay: 500]);
+                light.setColorTemperature(data.temp);
             }
             if(data.level != null && data.level.toString() != "null") {
-                light.setLevel(data.level, [delay: 250]);
+                light.setLevel(data.level);
             }
         }
     } else {
         if(data.temp != null && data.temp.toString() != "null") {
-            light.setColorTemperature(data.temp, [delay: 500]);
+            light.setColorTemperature(data.temp);
         }
         if(data.level != null && data.level.toString() != "null") {
-            light.setLevel(data.level, [delay: 250]);
+            light.setLevel(data.level);
         }
     }
 }

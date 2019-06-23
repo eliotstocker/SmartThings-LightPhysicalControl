@@ -32,7 +32,21 @@ preferences {
 def LightSettingsPage() {
     dynamicPage(name: "LightSettingsPage", install: true, uninstall: true) {
     	section("Select the button you wish to use") {
-            input "button", "capability.button", title: "Button"
+            input "button", "capability.button", title: "Button", submitOnChange: true
+            if(hasMultipleButtons()) {
+            	input "offBtn", "boolean", title: "Separate On/Off buttons", submitOnChange: true
+                if(hasOffButton()) {
+                    input "offBtnNumber", "number", title: "Which Button should turn the lights off", range: getButtonRange()
+                }
+                if(hasMoreThanButtons(3)) {
+                    input "dimmingBtns", "boolean", title: "Enable Dimming Buttons", submitOnChange: true
+                    if(dimmingEnabled()) {
+                        input "dimButton", "number", title: "Which Button should Dim the Lights", range: getButtonRange()
+                        input "brightenButton", "number", title: "Which Button should Brighten the Lights", range: getButtonRange()
+                        input "dimAmount", "number", title: "Amount to dim by per step", range: "(2..30)", default: 20
+                    }
+                }
+            }
         }
         section("Select Light(s) to turn on/off") {
             input "lights", "capability.switch", title: "Lights", multiple: true, submitOnChange: true
@@ -60,6 +74,37 @@ def LightSettingsPage() {
         	label title: "Setup Name", required: true, defaultValue: app.label
         }
     }
+}
+
+def hasMultipleButtons() {    
+    return button.currentValue("numberOfButtons") > 1
+}
+
+def hasMoreThanButtons(count) {
+    return button.currentValue("numberOfButtons") > count
+}
+
+def hasOffButton() {
+	if(offBtn == "true") {
+    	log.debug "off Button enabled"
+        return true
+    }
+    log.debug "off Button disabled"
+	return false
+}
+
+def dimmingEnabled() {
+	if(dimmingBtns == "true") {
+    	log.debug "Dimming Buttons enabled"
+        return true
+    }
+    log.debug "Dimming Buttons disabled"
+	return false
+}
+
+def getButtonRange() {
+	def buttonCount = button.currentValue("numberOfButtons")
+	return "(1..$buttonCount)"
 }
 
 def checkForCapability(capability) {
@@ -129,12 +174,24 @@ def buttonPress(evt) {
     if(evt.value == "held") {
     	isHeld = true;
     }
-	def anyOn = false;
-    def timedSettingsActive = false;
-	for(light in lights) {
-    	if(light.currentValue("switch") == "on") anyOn = true;
+    
+   	def buttonNumber = evt.jsonData.buttonNumber;
+    
+    if(dimmingBtns && (buttonNumber == dimButton || buttonNumber == brightenButton)) {
+    	return dimOpperation(evt)
     }
-    if(anyOn) {
+    
+	def shouldTurnOff = false;
+    def timedSettingsActive = false;
+    if(!offBtn) {
+        for(light in lights) {
+            if(light.currentValue("switch") == "on") shouldTurnOff = true;
+        }
+    } else if(buttonNumber == offBtnNumber) {
+    	shouldTurnOff = true;
+    }
+    
+    if(shouldTurnOff) {
     	lights.off()
     } else {
     	if(!isHeld) {
@@ -194,6 +251,27 @@ def buttonPress(evt) {
     }
 }
 
+def dimOpperation(evt) {
+	def buttonNumber = evt.jsonData.buttonNumber;
+    if(buttonNumber == dimButton) {
+    	changeLevel(-dimAmount);
+    	log.debug "Should Dim Lights by $dimAmount %"
+    } else if(buttonNumber == brightenButton) {
+    	changeLevel(dimAmount);
+    	log.debug "Should Brighten Lights $dimAmount %"
+    }
+}
+
+def changeLevel(amount) {
+	for(light in lights) {
+        if(checkDeviceForCapability(light, 'Switch Level')) {
+            if(light.currentValue("switch") == "on") {
+                light.setLevel(light.currentValue("level") + amount);
+            }
+        }
+    }
+}
+
 def setLightsConfig(data) {
     log.debug "set all lights"
 	for(light in lights) {
@@ -235,18 +313,26 @@ def setLightConfig(light, data) {
             ], [delay: 250]);
         } catch(e) {
             if(data.temp != null && data.temp.toString() != "null") {
-                light.setColorTemperature(data.temp);
+                try {
+                    light.setColorTemperature(data.temp);
+                } catch(er) {}
             }
             if(data.level != null && data.level.toString() != "null") {
-                light.setLevel(data.level);
+                try {
+                    light.setLevel(data.level);
+                } catch(er) {}
             }
         }
     } else {
         if(data.temp != null && data.temp.toString() != "null") {
-            light.setColorTemperature(data.temp);
+            try {
+                light.setColorTemperature(data.temp);
+            } catch(er) {}
         }
         if(data.level != null && data.level.toString() != "null") {
-            light.setLevel(data.level);
+            try {
+                light.setLevel(data.level);
+            } catch(er) {}
         }
     }
 }

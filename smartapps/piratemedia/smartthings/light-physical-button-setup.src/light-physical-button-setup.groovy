@@ -76,12 +76,12 @@ def LightSettingsPage() {
     }
 }
 
-def hasMultipleButtons() {    
-    return button.currentValue("numberOfButtons") > 1
+def hasMultipleButtons() {
+    return button && button.currentValue("numberOfButtons") > 1
 }
 
 def hasMoreThanButtons(count) {
-    return button.currentValue("numberOfButtons") > count
+    return button && button.currentValue("numberOfButtons") > count
 }
 
 def hasOffButton() {
